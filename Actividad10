@@ -1,0 +1,194 @@
+import java.util.ArrayList;
+import java.util.List;
+
+// ==========================================
+// CLASE ABSTRACTA BASE 
+// ==========================================
+abstract class Planta {
+    protected String nombre;
+    protected String especie;
+    protected int frecuenciaDias;
+    protected int diasDesdeUltimoRiego;
+
+    public Planta(String nombre, String especie, int frecuenciaDias, int diasDesdeUltimoRiego) {
+        this.nombre = nombre;
+        this.especie = especie;
+        this.frecuenciaDias = frecuenciaDias;
+        this.diasDesdeUltimoRiego = diasDesdeUltimoRiego;
+    }
+
+    public boolean tocaRiego() {
+        return diasDesdeUltimoRiego >= frecuenciaDias;
+    }
+
+    public abstract void regar();
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public String getEspecie() {
+        return especie;
+    }
+
+    public int getFrecuenciaDias() {
+        return frecuenciaDias;
+    }
+}
+
+class PlantaSuculenta extends Planta {
+    public PlantaSuculenta(String nombre, String especie, int diasDesdeUltimoRiego) {
+        super(nombre, especie, 15, diasDesdeUltimoRiego);
+    }
+
+    @Override
+    public void regar() {
+        this.diasDesdeUltimoRiego = 0;
+        System.out.println("Regando suculenta '" + nombre + "': Riego ligero completado.");
+    }
+}
+
+class PlantaTropical extends Planta {
+    public PlantaTropical(String nombre, String especie, int diasDesdeUltimoRiego) {
+        super(nombre, especie, 2, diasDesdeUltimoRiego);
+    }
+
+    @Override
+    public void regar() {
+        this.diasDesdeUltimoRiego = 0;
+        System.out.println("Regando planta tropical '" + nombre + "': Riego abundante completado.");
+    }
+}
+
+// ==========================================
+// PATRÓN DE COMPORTAMIENTO: OBSERVER
+// Interfaz Notificable y Observador
+// ==========================================
+interface Notificable {
+    void notificar(String mensaje);
+}
+
+class Jardinero implements Notificable {
+    private String nombre;
+
+    public Jardinero(String nombre) {
+        this.nombre = nombre;
+    }
+
+    @Override
+    public void notificar(String mensaje) {
+        System.out.println("Notificación recibida por " + nombre + ": " + mensaje);
+    }
+}
+
+// ==========================================
+// PATRÓN ESTRUCTURAL: DECORATOR
+// Permite añadir funcionalidades a Notificable sin usar APIs externas
+// ==========================================
+abstract class NotificableDecorator implements Notificable {
+    protected Notificable notificableDecorado;
+
+    public NotificableDecorator(Notificable notificable) {
+        this.notificableDecorado = notificable;
+    }
+
+    @Override
+    public void notificar(String mensaje) {
+        this.notificableDecorado.notificar(mensaje);
+    }
+}
+
+class NotificacionUrgenteDecorator extends NotificableDecorator {
+
+    public NotificacionUrgenteDecorator(Notificable notificable) {
+        super(notificable);
+    }
+
+    @Override
+    public void notificar(String mensaje) {
+        String mensajeConPrioridad = " [ALTA PRIORIDAD] " + mensaje;
+        super.notificar(mensajeConPrioridad);
+    }
+}
+
+// ==========================================
+// PATRÓN CREACIONAL: SINGLETON
+// Gestor de Riego, sujeto en Observer
+// ==========================================
+class GestorRiego {
+    private static GestorRiego instanciaUnica;
+    private List<Planta> plantas;
+    private List<Notificable> notificables;
+
+    private GestorRiego() {
+        plantas = new ArrayList<>();
+        notificables = new ArrayList<>();
+    }
+
+    public static synchronized GestorRiego getInstancia() {
+        if (instanciaUnica == null) {
+            instanciaUnica = new GestorRiego();
+        }
+        return instanciaUnica;
+    }
+
+    public void agregarPlanta(Planta planta) {
+        plantas.add(planta);
+        System.out.println("Planta registrada: " + planta.getNombre() + " (" + planta.getEspecie() + ") | Cada " + planta.getFrecuenciaDias() + " días.");
+    }
+
+    public void registrarEncargado(Notificable notificable) {
+        notificables.add(notificable);
+    }
+
+    public void verificarYNotificarRiegos() {
+        System.out.println("\n--- REVISANDO RECORDATORIOS DE RIEGO ---");
+        for (Planta planta : plantas) {
+            if (planta.tocaRiego()) {
+                notificarTodos("Hoy toca regar la planta '" + planta.getNombre() + "' (" + planta.getEspecie() + ")");
+            }
+        }
+    }
+
+    public void ejecutarRiego(Planta planta) {
+        System.out.println("\n--- EJECUCIÓN DE RIEGO ---");
+        planta.regar();
+        notificarTodos("Riego completado exitosamente para: " + planta.getNombre());
+    }
+
+    private void notificarTodos(String mensaje) {
+        for (Notificable notificable : notificables) {
+            notificable.notificar(mensaje);
+        }
+    }
+}
+
+// ==========================================
+// CLASE PRINCIPAL
+// ==========================================
+public class SistemaPlantas {
+    public static void main(String[] args) {
+        // Uso de Singleton
+        GestorRiego gestor = GestorRiego.getInstancia();
+
+        // Creación de observadores (uno normal y otro decorado)
+        Notificable jardineroNormal = new Jardinero("Laura Nina");
+        
+        // Envolvemos al jardinero para darle notificaciones urgentes
+        Notificable jardineroUrgente = new NotificacionUrgenteDecorator(jardineroNormal);
+
+        // Registramos el notificable decorado
+        gestor.registrarEncargado(jardineroUrgente);
+
+        System.out.println("=== REGISTRO DE PLANTAS ===");
+        Planta cactus = new PlantaSuculenta("Cactus San Pedro", "Echinopsis pachanoi", 15);
+        Planta helecho = new PlantaTropical("Helecho Real", "Osmunda regalis", 1);
+
+        gestor.agregarPlanta(cactus);
+        gestor.agregarPlanta(helecho);
+
+        gestor.verificarYNotificarRiegos();
+
+        gestor.ejecutarRiego(cactus);
+    }
+}
